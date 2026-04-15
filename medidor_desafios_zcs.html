@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medidor de desafíos diarios - ZCS</title>
+  <style>
+    :root {
+      --bg: #d1b495;
+      --panel: #dbcdbb;
+      --primary: #7a5647;
+      --primary-dark: #5d4037;
+      --text: #2e2430;
+      --border: #a28e7b;
+      --white: #ffffff;
+      --input-bg: #f4f4f4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #7a4e19 0%, var(--bg) 8%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 6px;
+    }
+
+    .app {
+      max-width: 1060px;
+      margin: 0 auto;
+      background: var(--bg);
+      border-radius: 16px;
+      padding: 28px 26px 34px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      border: 3px solid #4b2d10;
+    }
+
+    h1 {
+      margin: 18px 0 26px;
+      text-align: center;
+      color: var(--primary-dark);
+      line-height: 1.05;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 800;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 26px;
+    }
+
+    .controls label {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
+    .route-input {
+      width: 180px;
+      text-align: center;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    input[type="text"], input[type="number"] {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--input-bg);
+      padding: 8px 10px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input[type="number"] {
+      width: 120px;
+      text-align: center;
+    }
+
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      background: var(--primary);
+      color: var(--white);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); opacity: .9; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      min-width: 760px;
+    }
+
+    thead th {
+      background: var(--primary);
+      color: var(--white);
+      font-size: 1rem;
+      padding: 14px 12px;
+      border: 1px solid var(--border);
+    }
+
+    tbody td {
+      border: 1px solid var(--border);
+      padding: 12px 10px;
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    tbody td:first-child {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .summary-row td {
+      background: var(--primary);
+      color: var(--white);
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .summary-label {
+      text-align: center;
+    }
+
+    .percent-cell {
+      font-weight: 800;
+      min-width: 88px;
+    }
+
+    .hint {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--primary-dark);
+      font-size: .95rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .secondary {
+      background: #8d6e63;
+    }
+
+    @media (max-width: 700px) {
+      .app { padding: 18px 14px 22px; }
+      tbody td:first-child { min-width: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Medidor de desafíos diarios Detalle<br>ZCS</h1>
+
+    <div class="controls">
+      <label for="routeNumber">Número de Ruta:</label>
+      <input id="routeNumber" class="route-input" type="text" value="ZONA 3" />
+      <button id="sendBtn">Enviar</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Necesidad Diaria</th>
+            <th>Real Diario</th>
+            <th>% Alcance</th>
+          </tr>
+        </thead>
+        <tbody id="bodyRows"></tbody>
+      </table>
+    </div>
+
+    <div class="actions">
+      <button class="secondary" id="resetBtn">Restablecer valores</button>
+      <button class="secondary" id="downloadBtn">Descargar JSON</button>
+    </div>
+
+    <p class="hint">
+      El porcentaje se calcula automáticamente. El botón <strong>Enviar</strong> muestra un resumen listo para copiar.
+    </p>
+  </div>
+
+  <script>
+    const initialRows = [
+      { name: 'Desafío diario café', need: 81071, real: 68354.5, key: 'cafe' },
+      { name: 'Desafío diario representadas', need: 46162, real: 18000, key: 'representadas' },
+      { name: 'Desafío coberturas Guandy', need: 36, real: 40, key: 'guandy' },
+      { name: 'Desafío coberturas Best', need: 43, real: 48, key: 'best' },
+      { name: 'Desafío cobertura innovación', need: 20, real: 0, key: 'innovacion' },
+      { name: 'Desafío coberturas clientes 4 marcas', need: 30, real: 15, key: 'clientes4marcas' },
+    ];
+
+    const state = JSON.parse(localStorage.getItem('medidor-zcs-state') || 'null') || {
+      route: 'ZONA 3',
+      rows: structuredClone(initialRows),
+    };
+
+    const bodyRows = document.getElementById('bodyRows');
+    const routeInput = document.getElementById('routeNumber');
+
+    function formatNumber(value) {
+      const n = Number(value) || 0;
+      return Number.isInteger(n)
+        ? n.toLocaleString('es-DO')
+        : n.toLocaleString('es-DO', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function percent(real, need) {
+      const r = Number(real) || 0;
+      const n = Number(need) || 0;
+      if (n <= 0) return 0;
+      return (r / n) * 100;
+    }
+
+    function save() {
+      localStorage.setItem('medidor-zcs-state', JSON.stringify(state));
+    }
+
+    function makeInput(value, rowIndex, field) {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = value;
+      input.addEventListener('input', (e) => {
+        state.rows[rowIndex][field] = Number(e.target.value || 0);
+        save();
+        render();
+      });
+      return input;
+    }
+
+    function render() {
+      routeInput.value = state.route;
+      bodyRows.innerHTML = '';
+
+      state.rows.forEach((row, index) => {
+        const tr = document.createElement('tr');
+
+        const tdName = document.createElement('td');
+        tdName.textContent = row.name;
+
+        const tdNeed = document.createElement('td');
+        tdNeed.appendChild(makeInput(row.need, index, 'need'));
+
+        const tdReal = document.createElement('td');
+        tdReal.appendChild(makeInput(row.real, index, 'real'));
+
+        const tdPercent = document.createElement('td');
+        tdPercent.className = 'percent-cell';
+        tdPercent.textContent = `${percent(row.real, row.need).toFixed(0)}%`;
+
+        tr.append(tdName, tdNeed, tdReal, tdPercent);
+        bodyRows.appendChild(tr);
+      });
+
+      const coberturas = ['guandy', 'best', 'innovacion'];
+      const ventas = ['cafe', 'representadas'];
+
+      const coverageNeed = state.rows.filter(r => coberturas.includes(r.key)).reduce((sum, r) => sum + (Number(r.need) || 0), 0);
+      const coverageReal = state.rows.filter(r => coberturas.includes(r.key)).reduce((sum, r) => sum + (Number(r.real) || 0), 0);
+      const salesNeed = state.rows.filter(r => ventas.includes(r.key)).reduce((sum, r) => sum + (Number(r.need) || 0), 0);
+      const salesReal = state.rows.filter(r => ventas.includes(r.key)).reduce((sum, r) => sum + (Number(r.real) || 0), 0);
+
+      bodyRows.appendChild(summaryRow('Alcance de Coberturas (Guandy + Best + Innovación)', percent(coverageReal, coverageNeed)));
+      bodyRows.appendChild(summaryRow('Ventas Totales (Café + Representadas)', percent(salesReal, salesNeed)));
+    }
+
+    function summaryRow(label, pct) {
+      const tr = document.createElement('tr');
+      tr.className = 'summary-row';
+
+      const tdLabel = document.createElement('td');
+      tdLabel.colSpan = 3;
+      tdLabel.className = 'summary-label';
+      tdLabel.textContent = label;
+
+      const tdValue = document.createElement('td');
+      tdValue.textContent = `${pct.toFixed(0)}%`;
+
+      tr.append(tdLabel, tdValue);
+      return tr;
+    }
+
+    routeInput.addEventListener('input', (e) => {
+      state.route = e.target.value.toUpperCase();
+      save();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      state.route = 'ZONA 3';
+      state.rows = structuredClone(initialRows);
+      save();
+      render();
+    });
+
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      const lines = [
+        `Ruta: ${state.route}`,
+        '',
+        ...state.rows.map(r => `${r.name}: ${formatNumber(r.real)} / ${formatNumber(r.need)} (${percent(r.real, r.need).toFixed(0)}%)`)
+      ];
+
+      const coberturas = ['guandy', 'best', 'innovacion'];
+      const ventas = ['cafe', 'representadas'];
+      const coverageNeed = state.rows.filter(r => coberturas.includes(r.key)).reduce((sum, r) => sum + (Number(r.need) || 0), 0);
+      const coverageReal = state.rows.filter(r => coberturas.includes(r.key)).reduce((sum, r) => sum + (Number(r.real) || 0), 0);
+      const salesNeed = state.rows.filter(r => ventas.includes(r.key)).reduce((sum, r) => sum + (Number(r.need) || 0), 0);
+      const salesReal = state.rows.filter(r => ventas.includes(r.key)).reduce((sum, r) => sum + (Number(r.real) || 0), 0);
+
+      lines.push('', `Alcance de Coberturas: ${percent(coverageReal, coverageNeed).toFixed(0)}%`);
+      lines.push(`Ventas Totales: ${percent(salesReal, salesNeed).toFixed(0)}%`);
+
+      const message = lines.join('\n');
+
+      try {
+        await navigator.clipboard.writeText(message);
+        alert('Resumen copiado al portapapeles.');
+      } catch {
+        alert(message);
+      }
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `medidor-zcs-${state.route.toLowerCase().replace(/\s+/g, '-')}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    render();
+  </script>
+</body>
+</html>
